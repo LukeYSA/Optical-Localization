@@ -1,7 +1,11 @@
 import numpy as np
 import cv2
+import os
 
-img=cv2.imread("3.jpg")
+path = r'/Users/lukeyin/Desktop/School/Mirror/Research/Optical-Localization/input_img'
+output_dir = r'/Users/lukeyin/Desktop/School/Mirror/Research/Optical-Localization/output_img'
+
+img=cv2.imread(path + '/3.jpg')
 img_hsv=cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
 # lower red mask (0-10)
@@ -38,6 +42,7 @@ white_mask = cv2.bitwise_not(white_mask)
 # output_hsv = img_hsv.copy()
 # output_hsv[np.where(mask==0)] = 0
 
+os.chdir(output_dir)
 cv2.imwrite('red_mask.jpg', red_mask)
 cv2.imwrite('green_mask.jpg', green_mask)
 cv2.imwrite('white_mask.jpg', white_mask)
