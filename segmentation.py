@@ -5,7 +5,7 @@ import os
 path = r'/Users/lukeyin/Desktop/School/Mirror/Research/Optical-Localization/input_img'
 output_dir = r'/Users/lukeyin/Desktop/School/Mirror/Research/Optical-Localization/output_img'
 
-img=cv2.imread(path + '/Oreo.png')
+img=cv2.imread(path + '/photo.png')
 img_hsv=cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
 # lower red mask (0-10)
@@ -40,28 +40,25 @@ upper_black = np.array([179,50,100])
 black_mask = cv2.inRange(img_hsv, lower_black, upper_black)
 black_mask = cv2.bitwise_not(black_mask)
 
-# set my output img to zero everywhere except my mask
-# output_img = img.copy()
-# output_img[np.where(mask==0)] = 0
-
-# or your HSV image, which I *believe* is what you want
-# output_hsv = img_hsv.copy()
-# output_hsv[np.where(mask==0)] = 0
-
 os.chdir(output_dir)
 cv2.imwrite('red_mask.png', red_mask)
 cv2.imwrite('green_mask.png', green_mask)
 cv2.imwrite('white_mask.png', white_mask)
 cv2.imwrite('black_mask.png', black_mask)
 
+# Find contours
 green_mask = cv2.bitwise_not(green_mask)
 im2, contours, hierarchy = cv2.findContours(green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 i=5
 for contour in contours:
+    # We don't want too many contours
     if i > 8:
         break
 
+    # Bound the contour in a rectange
     [x, y, w, h] = cv2.boundingRect(contour)
     print(str(x) + ", " + str(y) + ", " + str(w) + ", " + str(h))
+
+    # Resize the image to only contain the contour
     cv2.imwrite(str(i)+'.png', img[y:y+h,x:x+w])
     i=i+1
