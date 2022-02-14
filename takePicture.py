@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import os
 
-input_dir = r'/Users/lukeyin/Desktop/School/Mirror/Research/Optical-Localization/input_img'
+input_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
 
 def capturePic(a : int = 1) -> None:
     cam = cv2.VideoCapture(0)

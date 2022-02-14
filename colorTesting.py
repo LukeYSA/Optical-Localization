@@ -2,8 +2,8 @@ import numpy as np
 import cv2
 import os
 
-path = r'/Users/lukeyin/Desktop/School/Mirror/Research/Optical-Localization/input_img'
-output_dir = r'/Users/lukeyin/Desktop/School/Mirror/Research/Optical-Localization/output_img'
+path = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
+output_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/output_img'
 
 img=cv2.imread(path + '/bob.png')
 img_hsv=cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
