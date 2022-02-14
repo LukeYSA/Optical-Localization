@@ -5,7 +5,7 @@ import os
 path = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
 output_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/output_img'
 
-img = cv2.imread(path + '/photo2.png')
+img = cv2.imread(path + '/photo.png')
 
 # Apply blur filter to "smoothen" the edges
 img = cv2.GaussianBlur(img, (7, 7), 0)
