@@ -2,14 +2,12 @@ import numpy as np
 import cv2
 import os
 
-def drawHorizontal():
-    path = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
-    output_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/output_img'
+path = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
+output_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/output_img'
 
-    img = cv2.imread(path + '/grid.png')
-
+def drawHorizontal(img):
     # Apply blur filter to "smoothen" the edges
-    img = cv2.GaussianBlur(img, (7, 7), 0)
+    # img = cv2.GaussianBlur(img, (7, 7), 0)
     # img = cv2.blur(img, (7, 7))
 
     # Split gray scale images on blue, green, and red
@@ -85,16 +83,12 @@ def drawHorizontal():
     # cv2.imwrite("edges.png", edges)
     # cv2.imwrite("no_throw.png", no_throw)
     # cv2.imwrite("red.png", R)
+    # cv2.imwrite("lines.png", lines)
     return edges
 
-def drawVertical() -> None:
-    path = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
-    output_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/output_img'
-
-    img = cv2.imread(path + '/grid.png')
-
+def drawVertical(img):
     # Apply blur filter to "smoothen" the edges
-    img = cv2.GaussianBlur(img, (7, 7), 0)
+    # img = cv2.GaussianBlur(img, (7, 7), 0)
     # img = cv2.blur(img, (7, 7))
 
     # Split gray scale images on blue, green, and red
@@ -173,10 +167,10 @@ def drawVertical() -> None:
     return edges
 
 if __name__ == '__main__':
-    output_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/output_img'
+    img = cv2.imread(path + '/grid.png')
 
-    horizontal_edges = drawHorizontal()
-    vertical_edges = drawVertical()
+    horizontal_edges = drawHorizontal(img)
+    vertical_edges = drawVertical(img)
     res = horizontal_edges + vertical_edges
 
     os.chdir(output_dir)
