@@ -166,14 +166,60 @@ def drawVertical(img):
     # cv2.imwrite("red.png", R)
     return edges
 
-if __name__ == '__main__':
-    img = cv2.imread(path + '/grid.png')
+def drawFull(img):
+    # Apply blur filter to "smoothen" the edges
+    # img = cv2.GaussianBlur(img, (7, 7), 0)
+    # img = cv2.blur(img, (7, 7))
 
-    horizontal_edges = drawHorizontal(img)
-    vertical_edges = drawVertical(img)
-    res = horizontal_edges + vertical_edges
+    # Split gray scale images on blue, green, and red
+    B, G, R = cv2.split(img)
+
+    # Threshold the green gray scale image so we can extract just the green parts
+    ret, mask = cv2.threshold(G, 66, 255, cv2.THRESH_BINARY)
+    # mask = cv2.adaptiveThreshold(G, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+    # Apply Canny filter so we can extract the edges
+    edges = cv2.Canny(mask, 100, 200)
+
+    return edges
+
+def sliding_window(image, stepSize, windowSize):
+	# slide a window across the image
+	for y in range(0, image.shape[0], stepSize):
+		for x in range(0, image.shape[1], stepSize):
+			# yield the current window
+			yield (x, y, image[y:y + windowSize[1], x:x + windowSize[0]])
+
+def detect_cross(img):
+    # Sliding window to detect the cross pattern
+    winW = 3
+    winH = 3
+    cross = np.matrix([[0, 255, 0], [255, 0, 0], [0, 0, 0]])
+    for (x, y, window) in sliding_window(res, stepSize=1, windowSize=(winW, winH)):
+		# if the window does not meet our desired window size, ignore it
+        if window.shape[0] != winH or window.shape[1] != winW:
+            continue
+        
+        # Problem: the cross section is not always a perfect cross, it might have gaps
+        # How to detect all variations of the cross sections
+        if np.array_equal(cross, window):
+            print(str(window))
+            print(" ")
+            print(str(x) + ", " + str(y))
+            print(" ")
+
+if __name__ == '__main__':
+    img = cv2.imread(path + '/chess.png')
+
+    # horizontal_edges = drawHorizontal(img)
+    # vertical_edges = drawVertical(img)
+    # res = horizontal_edges + vertical_edges
+
+    res = drawFull(img)
+        
+    detect_cross(img)
 
     os.chdir(output_dir)
-    cv2.imwrite("hedges.png", horizontal_edges)
-    cv2.imwrite("vedges.png", vertical_edges)
+    # cv2.imwrite("hedges.png", horizontal_edges)
+    # cv2.imwrite("vedges.png", vertical_edges)
     cv2.imwrite("res.png", res)
