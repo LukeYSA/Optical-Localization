@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import os
+import matplotlib.pyplot as plt
 from collections import defaultdict
 
 path = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
@@ -26,19 +27,14 @@ def drawFull(img):
 
     # Sobel filter version
     grad_x = cv2.Sobel(mask, ddepth, 1, 0, ksize=3, scale=scale, delta=delta, borderType=cv2.BORDER_DEFAULT)
-    # Gradient-Y
-    # grad_y = cv.Scharr(gray,ddepth,0,1)
     grad_y = cv2.Sobel(mask, ddepth, 0, 1, ksize=3, scale=scale, delta=delta, borderType=cv2.BORDER_DEFAULT)
-    grad_xy = cv2.Sobel(mask, cv2.CV_64F, 1, 1, ksize=5, scale=scale, delta=delta, borderType=cv2.BORDER_DEFAULT)
     
     abs_grad_x = cv2.convertScaleAbs(grad_x)
     abs_grad_y = cv2.convertScaleAbs(grad_y)
-    abs_grad_xy = cv2.convertScaleAbs(grad_xy)
 
     os.chdir(output_dir)
     cv2.imwrite("grad_x.png", abs_grad_x)
     cv2.imwrite("grad_y.png", abs_grad_y)
-    cv2.imwrite("grad_xy.png", abs_grad_xy)
     
     edges = cv2.addWeighted(abs_grad_x, 1, abs_grad_y, 1, 0)
     # edges = cv2.Sobel(mask, ddepth, 1, 1, ksize=3, scale=scale, delta=delta, borderType=cv2.BORDER_DEFAULT)
@@ -82,7 +78,7 @@ def intersection(line1, line2):
     b = np.array([[rho1], [rho2]])
     x0, y0 = np.linalg.solve(A, b)
     # x0, y0 = int(np.round(x0)), int(np.round(y0))
-    return [[x0], [y0]]
+    return [int(np.round(x0)), int(np.round(y0))]
 
 def segmented_intersection(lines):
     intersections = []
@@ -101,27 +97,152 @@ def makeMatrix(intersections):
 def plot_points(img, points):
     copy = img.copy()
     for point in points:
-        # print(str(point[0][0]) + ", " + str(point[1][0]))
-        copy = cv2.circle(copy, (point[0][0], point[1][0]), radius=5, color=(255, 0, 0), thickness=-1)
+        # print(str(point[0]) + ", " + str(point[1]))
+        copy = cv2.circle(copy, (point[0], point[1]), radius=5, color=(255, 0, 0), thickness=-1)
+        cv2.putText(copy, "(x,y): " + str(point[0]) + ", " + str(point[1]),
+                    (point[0], point[1] + 28), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
     return copy
 
+def construct_matrix(intersections):
+    # Put intersection points into a matrix based on their relative positions
+    n = int(np.sqrt(len(intersections)))
+    # print(str(n))
+    # Initialize a n*n*2 matrix
+    intersection_matrix = [[[0 for k in range(2)] for j in range(n)] for i in range(n)]
+
+    index = 0
+    for i in range(n):
+        for j in range(n):
+            intersection_matrix[i][j] = intersections[index]
+            index += 1
+            if index >= len(intersections):
+                break
+
+    return intersection_matrix
+
+def fill_position_matrix(intersection_matrix, img):
+    height, width, channels = img.shape
+    # print(str(height) + ", " + str(width))
+    position_matrix = -1 * np.ones((height, width), dtype=object)
+    # position_matrix = -1 * np.ones((height, width))
+
+    # For each point in intersection_matrix, look at its immediate right and down
+    # Consider y=ax+b, calculate a and b where x and y are the pixel coordinates
+    # Calculate distance between two points and get the real world distance between
+    # pixels 10mm/dist
+    # Write the real world coordinates into the position_matrix
+    row = len(intersection_matrix)
+    col = len(intersection_matrix[0])
+
+    # General case, right and below of the current dot
+    for i in range(0, row - 1):
+        for j in range(0, col - 1):
+            curr = intersection_matrix[i][j]
+            right = intersection_matrix[i + 1][j]
+            below = intersection_matrix[i][j + 1]
+            # print("curr: " + str(curr) + " right: " + str(right) + " below: " + str(below))
+            x1 = curr[0]
+            y1 = curr[1]
+            x2 = below[0]
+            y2 = below[1]
+            x3 = right[0]
+            y3 = right[1]
+
+            # right
+            length = np.sqrt((x3 - x1)**2 + (y3 - y1)**2)
+            m = (y3 - y1) / (x3 - x1)
+            b = y1
+            for x in range(x1, x3):
+                y = int((m * x) + b)
+                dist = np.sqrt((x - x1)**2 + (y - y1)**2)
+                position_matrix[y][x] = [(dist/length) * 10 + (i * 10), j * 10]
+                # position_matrix[y][x] = 1
+
+            # below
+            length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+            m = (x2 - x1) / (y2 - y1)
+            b = x1
+            for y in range(y1, y2):
+                x = int((m * y) + b)
+                dist = np.sqrt((x - x1)**2 + (y - y1)**2)
+                position_matrix[y][x] = [i * 10, (dist/length) * 10 + (j * 10)]
+                # position_matrix[y][x] = 1
+
+    # dots from the last row
+    for i in range(0, col - 1):
+        curr = intersection_matrix[i][row - 1]
+        right = intersection_matrix[i + 1][row - 1]
+        # print("curr: " + str(curr) + " below: " + str(below))
+        x1 = curr[0]
+        y1 = curr[1]
+        x2 = right[0]
+        y2 = right[1]
+
+        length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        m = (y2 - y1) / (x2 - x1)
+        b = y1
+        for x in range(x1, x2):
+            y = int((m * x) + b)
+            dist = np.sqrt((x - x1)**2 + (y - y1)**2)
+            position_matrix[y][x] = [(dist/length) * 10 + (i * 10), (row - 1) * 10]
+            # position_matrix[y][x] = 1
+        
+    # dots from the last column
+    for j in range(0, row - 1):
+        curr = intersection_matrix[col - 1][j]
+        below = intersection_matrix[col - 1][j + 1]
+        # print("curr: " + str(curr) + " right: " + str(right))
+        x1 = curr[0]
+        y1 = curr[1]
+        x2 = below[0]
+        y2 = below[1]
+
+        length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        m = (x2 - x1) / (y2 - y1)
+        b = x1
+        for y in range(y1, y2):
+            x = int((m * y) + b)
+            dist = np.sqrt((x - x1)**2 + (y - y1)**2)
+            position_matrix[y][x] = [(col - 1) * 10, (dist/length) * 10 + (j * 10)]
+            # position_matrix[y][x] = 1
+
+    return position_matrix
+
+def userTest(position_matrix):
+    while True:
+        x = int(input("x: "))
+        y = int(input("y: "))
+        if x == -1:
+            break
+        print(position_matrix[y][x])
+
 if __name__ == '__main__':
+    # Read in the image
     img = cv2.imread(path + '/chess.png')
 
-    # horizontal_edges = drawHorizontal(img)
-    # vertical_edges = drawVertical(img)
-    # res = horizontal_edges + vertical_edges
-
+    # Detect and draw the edges of the image
     res = drawFull(img)
 
-    # detect_cross(img)
-    rho, theta, thresh = 1, np.pi/180, 150
+    # Group edges into two groups based on their theta
+    rho, theta, thresh = 1, np.pi/180, 170
     lines = cv2.HoughLines(res, rho, theta, thresh)
     segmented = segment_lines(lines)
-    intersections = segmented_intersection(segmented)
 
-    print(intersections)
+    # Detect intersection of lines and output the point of intersection
+    intersections = segmented_intersection(segmented)
+    intersections.sort()
+    # print(intersections)
+
+    # Plot the intersection points on the image
     points = plot_points(res, intersections)
+
+    intersection_matrix = construct_matrix(intersections)
+    # print(intersection_matrix)
+
+    position_matrix = fill_position_matrix(intersection_matrix, img)
+    # plt.imshow(position_matrix, interpolation='none')
+    # plt.show()
+    userTest(position_matrix)
 
     os.chdir(output_dir)
     # cv2.imwrite("hedges.png", horizontal_edges)
