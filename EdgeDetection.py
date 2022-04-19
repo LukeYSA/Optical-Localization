@@ -120,6 +120,11 @@ def construct_matrix(intersections):
 
     return intersection_matrix
 
+
+"""
+This function currently assumes that the grid is perfectly upright.
+Need to explore the case where it is tilted
+""" 
 def fill_position_matrix(intersection_matrix, img):
     height, width, channels = img.shape
     # print(str(height) + ", " + str(width))
@@ -139,72 +144,37 @@ def fill_position_matrix(intersection_matrix, img):
         for j in range(0, col - 1):
             curr = intersection_matrix[i][j]
             right = intersection_matrix[i + 1][j]
-            below = intersection_matrix[i][j + 1]
+            bot = intersection_matrix[i][j + 1]
+            botright = intersection_matrix[i + 1][j + 1]
             # print("curr: " + str(curr) + " right: " + str(right) + " below: " + str(below))
             x1 = curr[0]
             y1 = curr[1]
-            x2 = below[0]
-            y2 = below[1]
+            x2 = bot[0]
+            y2 = bot[1]
             x3 = right[0]
             y3 = right[1]
+            x4 = botright[0]
+            y4 = botright[1]
 
-            # right
-            length = np.sqrt((x3 - x1)**2 + (y3 - y1)**2)
-            m = (y3 - y1) / (x3 - x1)
-            b = y1
-            for x in range(x1, x3):
-                y = int((m * x) + b)
-                dist = np.sqrt((x - x1)**2 + (y - y1)**2)
-                position_matrix[y][x] = [(dist/length) * 10 + (i * 10), j * 10]
-                # position_matrix[y][x] = 1
+            # right (horizontal)
+            rightlength = np.sqrt((x3 - x1)**2 + (y3 - y1)**2)
+            rightm = (y3 - y1) / (x3 - x1)
+            rightb = y1
 
-            # below
-            length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-            m = (x2 - x1) / (y2 - y1)
-            b = x1
-            for y in range(y1, y2):
-                x = int((m * y) + b)
-                dist = np.sqrt((x - x1)**2 + (y - y1)**2)
-                position_matrix[y][x] = [i * 10, (dist/length) * 10 + (j * 10)]
-                # position_matrix[y][x] = 1
+            # bottom right (horizontal)
+            botrightlength = np.sqrt((x4 - x2)**2 + (y4 - y2)**2)
+            botrightm = (y4 - y2) / (x4 - x2)
+            botrightb = y2
+            for x in range(x1, x3 + 1):
+                topy = int((rightm * x) + rightb)
+                boty = int((botrightm * x) + botrightb)
+                dist = np.sqrt((x - x1)**2 + (topy - y1)**2)
+                realx = (dist/rightlength) * 10 + (i * 10)
 
-    # dots from the last row
-    for i in range(0, col - 1):
-        curr = intersection_matrix[i][row - 1]
-        right = intersection_matrix[i + 1][row - 1]
-        # print("curr: " + str(curr) + " below: " + str(below))
-        x1 = curr[0]
-        y1 = curr[1]
-        x2 = right[0]
-        y2 = right[1]
-
-        length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-        m = (y2 - y1) / (x2 - x1)
-        b = y1
-        for x in range(x1, x2):
-            y = int((m * x) + b)
-            dist = np.sqrt((x - x1)**2 + (y - y1)**2)
-            position_matrix[y][x] = [(dist/length) * 10 + (i * 10), (row - 1) * 10]
-            # position_matrix[y][x] = 1
-        
-    # dots from the last column
-    for j in range(0, row - 1):
-        curr = intersection_matrix[col - 1][j]
-        below = intersection_matrix[col - 1][j + 1]
-        # print("curr: " + str(curr) + " right: " + str(right))
-        x1 = curr[0]
-        y1 = curr[1]
-        x2 = below[0]
-        y2 = below[1]
-
-        length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-        m = (x2 - x1) / (y2 - y1)
-        b = x1
-        for y in range(y1, y2):
-            x = int((m * y) + b)
-            dist = np.sqrt((x - x1)**2 + (y - y1)**2)
-            position_matrix[y][x] = [(col - 1) * 10, (dist/length) * 10 + (j * 10)]
-            # position_matrix[y][x] = 1
+                for y in range(topy, boty + 1):
+                    ydist = topy - y
+                    realy = (ydist/(topy - boty)) * 10 + (j * 10)
+                    position_matrix[y][x] = [realx, realy]
 
     return position_matrix
 
