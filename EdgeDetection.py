@@ -167,9 +167,7 @@ class EdgeDetection:
                     filtered.append(this_point)
             i += 1
 
-
         filtered.sort()
-        # print(filtered)
         # print(len(filtered))
         return filtered
         # return intersections
@@ -213,6 +211,20 @@ class EdgeDetection:
             standard_x = col[0][0]
             for j in range(0, len(col)):
                 intersection_matrix[i][j][0] = standard_x
+
+        processed = []
+        for i in range(n):
+            for j in range(n):
+                processed.append(intersection_matrix[i][j])
+        processed.sort()
+
+        index = 0
+        for i in range(n):
+            for j in range(n):
+                intersection_matrix[i][j] = processed[index]
+                index += 1
+                if index >= len(processed):
+                    break
 
         return intersection_matrix
 
@@ -288,7 +300,7 @@ class EdgeDetection:
 
 if __name__ == '__main__':
     # Read in the image
-    img = cv2.imread(path + '/chess.png')
+    img = cv2.imread(path + '/chess_irl.png')
     detect = EdgeDetection(img, output_dir=output_dir)
 
     # Detect and draw the edges of the image
