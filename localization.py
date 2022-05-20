@@ -12,7 +12,7 @@ if __name__ == '__main__':
     path = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
     output_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/output_img'
 
-    img = cv2.imread(path + '/chess.png')
+    img = cv2.imread(path + '/photo2.png')
     detect = EdgeDetection(img, output_dir=output_dir)
 
     # Detect and draw the edges of the image

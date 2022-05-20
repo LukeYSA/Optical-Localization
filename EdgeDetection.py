@@ -21,19 +21,25 @@ class EdgeDetection:
         delta = 0
         ddepth = cv2.CV_16S
         # Apply blur filter to "smoothen" the edges
-        # img = cv2.GaussianBlur(img, (3, 3), 0)
-        # img = cv2.blur(img, (7, 7))
+        self.image = cv2.GaussianBlur(self.image, (5, 5), 0)
+        # self.image = cv2.blur(self.image, (7, 7))
 
         # Split gray scale images on blue, green, and red
         B, G, R = cv2.split(self.image)
 
         # Threshold the green gray scale image so we can extract just the green parts
         ret, mask = cv2.threshold(G, 66, 255, cv2.THRESH_BINARY)
+        # mask = cv2.GaussianBlur(mask, (5, 5), 0)
+        
+        # apply close to connect the white areas
+        # kernel = np.ones((15,1), np.uint8)
+        # mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        # kernel = np.ones((17,3), np.uint8)
+        # mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        # mask = cv2.blur(mask, (5, 5))
         # mask = cv2.adaptiveThreshold(G, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
 
-        # Apply Canny filter so we can extract the edges
-        # edges = cv2.Canny(mask, 7, 7)
-
+        # mask = cv2.Canny(mask, 50, 150)
         # Sobel filter version
         grad_x = cv2.Sobel(mask, ddepth, 1, 0, ksize=3, scale=scale, delta=delta, borderType=cv2.BORDER_DEFAULT)
         grad_y = cv2.Sobel(mask, ddepth, 0, 1, ksize=3, scale=scale, delta=delta, borderType=cv2.BORDER_DEFAULT)
@@ -41,19 +47,48 @@ class EdgeDetection:
         abs_grad_x = cv2.convertScaleAbs(grad_x)
         abs_grad_y = cv2.convertScaleAbs(grad_y)
 
+        # M = np.float32([
+        #     [1, 0, -1],
+        #     [0, 1, -1]
+        # ])
+
+        # abs_grad_x = cv2.warpAffine(abs_grad_x, M, (abs_grad_x.shape[1], abs_grad_x.shape[0]))
+
         if output_dir is not None:
             os.chdir(output_dir)
             cv2.imwrite("edge_grad_x.png", abs_grad_x)
             cv2.imwrite("edge_grad_y.png", abs_grad_y)
+            cv2.imwrite("edge_Green.png", G)
+            cv2.imwrite("edge_green_mask.png", mask)
         
         edges = cv2.addWeighted(abs_grad_x, 1, abs_grad_y, 1, 0)
         # edges = cv2.Sobel(mask, ddepth, 1, 1, ksize=3, scale=scale, delta=delta, borderType=cv2.BORDER_DEFAULT)
+        # Apply Canny filter so we can extract the edges
+        # edges = cv2.Canny(edges, 50, 150)
+        # cv2.imwrite("edge_green_mask.png", mask)
 
         return edges
 
     def segment_lines(self, edgeImage, k=2, **kwargs):
-        rho, theta, thresh = 1, np.pi/180, 170
+        rho, theta, thresh = 1, np.pi/180, 150
         lines = cv2.HoughLines(edgeImage, rho, theta, thresh)
+
+        img = self.image.copy()
+        for line in lines:
+            rho, theta = line[0]
+            a = np.cos(theta)
+            b = np.sin(theta)
+            x0 = a*rho
+            y0 = b*rho
+            x1 = int(x0 + 1000*(-b))
+            y1 = int(y0 + 1000*(a))
+            x2 = int(x0 - 1000*(-b))
+            y2 = int(y0 - 1000*(a))
+
+            cv2.line(img,(x1,y1),(x2,y2),(255,0,0),2)
+
+        os.chdir(self.output_dir)
+        cv2.imwrite('edge_houghlines.jpg',img)
 
         # Set parameters
         default_criteria_type = cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER
@@ -102,16 +137,60 @@ class EdgeDetection:
                     for line2 in next_group:
                         intersections.append(self.intersection(line1, line2))
 
-        intersections.sort()
-        return intersections
+        filtered = []
+        bitmap = [1 for i in range(len(intersections))]
+        i = 0
+        tolerance = 15
+        while i < len(intersections):
+            if bitmap[i] == 1:
+                similar = []
+                similar_idx = []
+                this_point = intersections[i]
+                j = i + 1
+                while j < len(intersections):
+                    other_point = intersections[j]
+                    if np.linalg.norm(np.array(this_point) - np.array(other_point)) < tolerance:
+                        similar.append(other_point)
+                        similar_idx.append(j)
+                    j += 1
+                # print(similar)
+                if len(similar) > 0:
+                    similar.append(this_point)
+                    avg = np.mean(similar, axis=0)
+                    processed = avg.tolist()
+                    processed[0] = int(np.round(processed[0]))
+                    processed[1] = int(np.round(processed[1]))
+                    filtered.append(processed)
+                    for idx in similar_idx:
+                        bitmap[idx] = 0
+                else:
+                    filtered.append(this_point)
+            i += 1
 
-    def plot_points(self, img, points):
+
+        filtered.sort()
+        # print(filtered)
+        # print(len(filtered))
+        return filtered
+        # return intersections
+
+    def plot_points_vector(self, img, points):
         copy = img.copy()
         for point in points:
             # print(str(point[0]) + ", " + str(point[1]))
             copy = cv2.circle(copy, (point[0], point[1]), radius=5, color=(255, 0, 0), thickness=-1)
             cv2.putText(copy, "(x,y): " + str(point[0]) + ", " + str(point[1]),
                         (point[0], point[1] + 28), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+        return copy
+
+    def plot_points(self, img, matrix):
+        copy = img.copy()
+        for col in matrix:
+            for point in col:
+                # print(str(point[0]) + ", " + str(point[1]))
+                copy = cv2.circle(copy, (point[0], point[1]), radius=5, color=(255, 0, 0), thickness=-1)
+                cv2.putText(copy, "(x,y): " + str(point[0]) + ", " + str(point[1]),
+                            (point[0], point[1] + 28), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
         return copy
 
     def construct_matrix(self, intersections):
@@ -128,6 +207,12 @@ class EdgeDetection:
                 index += 1
                 if index >= len(intersections):
                     break
+
+        for i in range(0, len(intersection_matrix)):
+            col = intersection_matrix[i]
+            standard_x = col[0][0]
+            for j in range(0, len(col)):
+                intersection_matrix[i][j][0] = standard_x
 
         return intersection_matrix
 
@@ -186,6 +271,8 @@ class EdgeDetection:
 
                     for y in range(topy, boty + 1):
                         ydist = topy - y
+                        # print('topy: ' + str(topy) + ", boty: " + str(boty))
+                        # print('-------------------------------------')
                         realy = (ydist/(topy - boty)) * 10 + (j * 10)
                         position_matrix[y][x] = [realx, realy]
 
@@ -213,20 +300,22 @@ if __name__ == '__main__':
     # Detect intersection of lines and output the point of intersection
     intersections = detect.segmented_intersection(segmented)
     # print(intersections)
+    points = detect.plot_points_vector(res, intersections)
 
-    # Plot the intersection points on the image
-    points = detect.plot_points(res, intersections)
+    os.chdir(output_dir)
+    # cv2.imwrite("hedges.png", horizontal_edges)
+    # cv2.imwrite("vedges.png", vertical_edges)
+    cv2.imwrite("edge_res.png", res)
+    cv2.imwrite("edge_points_vector.png", points)
 
     intersection_matrix = detect.construct_matrix(intersections)
     # print(intersection_matrix)
+    # Plot the intersection points on the image
+    points = detect.plot_points(res, intersection_matrix)
+    cv2.imwrite("edge_points.png", points)
 
     position_matrix = detect.fill_position_matrix(intersection_matrix)
     # plt.imshow(position_matrix, interpolation='none')
     # plt.show()
     detect.userTest(position_matrix)
 
-    os.chdir(output_dir)
-    # cv2.imwrite("hedges.png", horizontal_edges)
-    # cv2.imwrite("vedges.png", vertical_edges)
-    cv2.imwrite("edge_res.png", res)
-    cv2.imwrite("edge_points.png", points)
