@@ -20,11 +20,13 @@ class ObjectDetection:
         B, G, R = cv2.split(self.image)
         ret, mask = cv2.threshold(B, 127, 255, cv2.THRESH_BINARY)
         im2, contours, hierarchy = cv2.findContours(mask, 1, 2)
+        img_copy = self.image.copy()
+        cv2.drawContours(img_copy, contours, -1, (0,255,0), 7)
 
         os.chdir(self.output_dir)
         cv2.imwrite("object_blue.png", B)
         cv2.imwrite("object_mask.png", mask)
-        cv2.imwrite("object_contours.png", im2)
+        cv2.imwrite("object_contours.png", img_copy)
 
         # Chooses the first contour that it sees
         cnt = contours[0]
