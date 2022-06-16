@@ -33,3 +33,8 @@ This project is the developpment of a program that uses two cameras to deltermin
 ## Note
 - Make sure to change the paths in ``EdgeDetection.py``, ``localization.py``, ``takePicture.py``, 
     ``ObjectDetection.py``, and ``colorTesting.py``
+- To set up the conda environment, from this directory run:
+```
+conda env create -f environment.yaml
+conda activate ol
+``` 
