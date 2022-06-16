@@ -5,11 +5,30 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 from typing import Optional, Tuple
 
-path = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
-output_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/output_img'
+"""
+*** IMPORTANT ***
+Change these paths to the absolute paths in your context
+"""
+# Path to your /input_img directory
+path = r'<insert path>'
+# Path to your /output_img directory
+output_dir = r'<insert path>'
 
+
+"""
+- This class handles the tasks needed to create a image pixel coordinate -> real life xy-coordinate mapping.
+- This class should be initialized only once before putting any object into the levitator to create a good
+    mapping (assuming the camera position is stationary), then use the getRealCoord() function to get the
+    real life coordinate after getting the pixel coordinate of the object of interest.
+- This also assumes that we can see a square grid. When we look at the intersections, it should be square
+    i.e. 2*2, 4*4, 8*8
+- Takes the upper left intersection as (0.0, 0.0) in real life coordinate
+"""
 class EdgeDetection:
     def __init__(self, image, output_dir = None) -> None:
+        """
+        Call this construxtor in the very beginning of the object localization.
+        """
         self.image = image
         if output_dir is not None:
             self.output_dir = output_dir
@@ -20,6 +39,10 @@ class EdgeDetection:
 
 
     def initializePositionsMatrix(self):
+        """
+        Constructs the mapping.
+        """
+        # Detect the grid
         res = self.drawFull()
 
         # Group edges into two groups based on their theta
@@ -27,30 +50,48 @@ class EdgeDetection:
 
         # Detect intersection of lines and output the point of intersection
         intersections = self.segmented_intersection(segmented)
-        # print(intersections)
+
+        # Plot the resulting intersection points
         points = self.plot_points_vector(res, intersections)
 
+        # Save the output to check the correctness
         os.chdir(output_dir)
-        # cv2.imwrite("hedges.png", horizontal_edges)
-        # cv2.imwrite("vedges.png", vertical_edges)
         cv2.imwrite("edge_res.png", res)
         cv2.imwrite("edge_points_vector.png", points)
 
+        # Construct the relative position matrix of the intersections
         intersection_matrix = self.construct_matrix(intersections)
-        # print(intersection_matrix)
-        # Plot the intersection points on the image
+
+        # Save the output to check the correctness
         points = self.plot_points(res, intersection_matrix)
         cv2.imwrite("edge_points.png", points)
 
+        # Construct the coordinate mapping
         position_matrix = self.fill_position_matrix(intersection_matrix)
         return position_matrix
 
 
     def getRealCoord(self, rx, ry):
+        """Get the real life coordinate given a pixel position.
+        
+        Args:
+            rx (int): x pixel coordinate of the object
+            ry (int): y pixel coordinate of the object
+
+        Returns:
+            Array of size 2.
+                index 0 is the real life x coordinate
+                index 1 is the real life y coordinate
+        """
         return self.positions_matrix[ry][rx]
 
 
     def drawFull(self):
+        """Detect the edges (lines in the grid) and return the image of edges
+        
+        Returns:
+            image of the detected edges
+        """
         scale = 1
         delta = 0
         ddepth = cv2.CV_16S
@@ -78,6 +119,7 @@ class EdgeDetection:
         # ])
         # abs_grad_x = cv2.warpAffine(abs_grad_x, M, (abs_grad_x.shape[1], abs_grad_x.shape[0]))
 
+        # Save the output to check the correctness
         if output_dir is not None:
             os.chdir(output_dir)
             cv2.imwrite("edge_grad_x.png", abs_grad_x)
@@ -96,6 +138,16 @@ class EdgeDetection:
 
 
     def segment_lines(self, edgeImage, k=2, **kwargs):
+        """Group edges into vertical edges and horizontal edges,
+            this should work no matter if the image is upright or not
+
+        Args:
+            edgeImage: the image of edges returned from drawFull()
+            k: the number of groups, which should be 2
+        
+        Returns:
+            dictionary of 2 keys, each has a key->list of lines relationship
+        """
         rho, theta, thresh = 1, np.pi/180, 150
         lines = cv2.HoughLines(edgeImage, rho, theta, thresh)
 
@@ -140,6 +192,17 @@ class EdgeDetection:
 
 
     def intersection(self, line1, line2):
+        """Find the intersection between two lines
+
+        Args:
+            line1: the first line
+            line2: the second line
+        
+        Returns:
+            list of length 2 of int.
+                index 0 is the x coordinate of the intersection
+                index 1 is the y coordinate of the intersection
+        """
         # Find intersection point of two lines from rho and theta
         # Solve:
         # x * cos(theta1) + y * sin(theta1) = r1
@@ -156,6 +219,14 @@ class EdgeDetection:
 
 
     def segmented_intersection(self, lines):
+        """Find the intersections in the grid
+
+        Args:
+            lines: already grouped lines returned from segment_lines()
+        
+        Returns:
+            list of intersection points
+        """
         intersections = []
         # Compare lines in each group
         for i, group in enumerate(lines[:-1]):
@@ -202,6 +273,15 @@ class EdgeDetection:
  
 
     def plot_points_vector(self, img, points):
+        """Plot a vector of points on the image.
+
+        Args:
+            img: image to plot points on
+            point: the points to be plotted
+        
+        Returns:
+            a new image that has the points plotted on it.
+        """
         copy = img.copy()
         for point in points:
             copy = cv2.circle(copy, (point[0], point[1]), radius=5, color=(255, 0, 0), thickness=-1)
@@ -211,6 +291,17 @@ class EdgeDetection:
 
 
     def plot_points(self, img, matrix):
+        """Plot a matrix of points on the image.
+            Useful when the we want to plot the intersection relative position matrix,
+            which is the output of construct_matrix()
+
+        Args:
+            img: image to plot points on
+            matrix: the points to be plotted
+        
+        Returns:
+            a new image that has the points plotted on it.
+        """
         copy = img.copy()
         for col in matrix:
             for point in col:
@@ -221,7 +312,19 @@ class EdgeDetection:
 
 
     def construct_matrix(self, intersections):
+        """Construct a relative position matrix of the intersections.
+            Right now this function forces all intersections that are on the same vertical line
+            to have the same x coordinate, which might not be true in practice.
+
+        Args:
+            intersections: the intersections returned from segmented_intersection()
+        
+        Returns:
+            a matrix where the relative position of the elements reflect their relative
+            positions on the grid.
+        """
         # Put intersection points into a matrix based on their relative positions
+        # Assumes a sqare grid
         n = int(np.sqrt(len(intersections)))
 
         # Initialize a n*n*2 matrix
@@ -264,15 +367,23 @@ class EdgeDetection:
 
     """
     This function currently assumes that the grid is perfectly upright.
-    Need to explore the case where it is tilted
+    Need to explore the case where it is tilted.
+
+    It does handle he case where there are slanted horizontal lines.
 
     *** Maybe straighten the image before processing? ***
     """ 
     def fill_position_matrix(self, intersection_matrix):
+        """Linear interpolation to construct the pixel coordinate -> real life xy-coordinate mapping.
+
+        Args:
+            intersection_matrix: the intersection matrix returned from construct_matrix()
+        
+        Returns:
+            a matrix where m[pixel_y][pixel_x] gives [real_x, real_y]
+        """
         height, width, channels = self.image.shape
-        # print(str(height) + ", " + str(width))
         position_matrix = -1 * np.ones((height, width), dtype=object)
-        # position_matrix = -1 * np.ones((height, width))
 
         # For each point in intersection_matrix, look at its immediate right and down
         # Consider y=ax+b, calculate a and b where x and y are the pixel coordinates

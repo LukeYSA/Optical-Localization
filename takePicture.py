@@ -2,8 +2,16 @@ import numpy as np
 import cv2
 import os
 
-input_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
+"""
+*** IMPORTANT ***
+Change these paths to the absolute paths in your context
+"""
+# Path to your /input_img directory
+input_dir = r'<insert path>'
 
+"""
+Experiment program to test how to capture pictures, since a video is just a bunch of frames
+"""
 def capturePic(a : int = 1) -> None:
     cam = cv2.VideoCapture(0)
 

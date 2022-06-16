@@ -2,8 +2,18 @@ import numpy as np
 import cv2
 import os
 
-path = r'/Users/lukeyin/Desktop/Research/Optical-Localization/input_img'
-output_dir = r'/Users/lukeyin/Desktop/Research/Optical-Localization/output_img'
+"""
+*** IMPORTANT ***
+Change these paths to the absolute paths in your context
+"""
+# Path to your /input_img directory
+path = r'<insert path>'
+# Path to your /output_img directory
+output_dir = r'<insert path>'
+
+"""
+This is a testing program to play around with image processing and colors
+"""
 
 img=cv2.imread(path + '/bob.png')
 img_hsv=cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
